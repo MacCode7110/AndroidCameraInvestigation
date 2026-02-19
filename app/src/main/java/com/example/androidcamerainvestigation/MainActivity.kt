@@ -45,7 +45,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidcamerainvestigation.ui.theme.AndroidCameraInvestigationTheme
-import java.util.concurrent.Executor
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
