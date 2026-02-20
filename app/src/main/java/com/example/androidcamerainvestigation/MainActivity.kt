@@ -20,14 +20,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +49,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidcamerainvestigation.ui.theme.AndroidCameraInvestigationTheme
+import com.example.androidcamerainvestigation.ui.theme.Purple40
+import com.example.androidcamerainvestigation.ui.theme.Purple80
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,7 +108,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 30.dp),
                         onClick = {
                             takePhoto(
                                 controller = controller,
@@ -113,7 +119,7 @@ class MainActivity : ComponentActivity() {
                         },
                         shape = RoundedCornerShape(1.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Blue,
+                            containerColor = Purple40,
                             contentColor = Color.White
                         )
                     ) {
@@ -121,6 +127,38 @@ class MainActivity : ComponentActivity() {
 
                         //ML-Kit can be applied here
                     }
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    )
+                    {
+                        val effects = listOf("None", "Face Detection", "Contour Detection", "Mesh Detection", "Selfie Segmentation")
+                        val (selectedEffect, onEffectSelected) = remember{ mutableStateOf(effects[0]) }
+
+                        effects.forEach { text ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().
+                                height(20.dp).
+                                padding(horizontal = 20.dp).
+                                selectable(
+                                    selected = (text == selectedEffect),
+                                    onClick = { onEffectSelected(text) }
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = (text == selectedEffect),
+                                    onClick = { onEffectSelected(text) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = Color.Black,
+                                        unselectedColor = Color.LightGray
+                                    )
+                                )
+                                Text(text = text, modifier = Modifier.padding(start = 5.dp))
+                            }
+                        }
+                  }
                 }
             }
         }
