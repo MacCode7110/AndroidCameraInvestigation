@@ -13,6 +13,7 @@ composeBom = "2024.09.00"
 camerax="1.5.0-alpha05"
 mlkit-face-detection="16.1.5"
 mlkit-segmentation="16.0.0-beta6"
+material3 = "1.4.0"
 
 
 [libraries]
@@ -38,6 +39,7 @@ androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", versi
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref="camerax"}
 mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref="mlkit-face-detection"}
 mlkit-segmentation-selfie = { module = "com.google.mlkit:segmentation-selfie", version.ref="mlkit-segmentation"}
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
