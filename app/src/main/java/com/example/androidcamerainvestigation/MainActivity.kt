@@ -50,7 +50,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidcamerainvestigation.ui.theme.AndroidCameraInvestigationTheme
 import com.example.androidcamerainvestigation.ui.theme.Purple40
-import com.example.androidcamerainvestigation.ui.theme.Purple80
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
