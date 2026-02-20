@@ -59,6 +59,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AndroidCameraInvestigationTheme {
+                val purple = Color(0xFF5927BD)
+
                 val controller = remember {
                     LifecycleCameraController(applicationContext).apply {
                         setEnabledUseCases (
@@ -102,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 30.dp),
                         onClick = {
                             takePhoto(
                                 controller = controller,
@@ -113,7 +115,7 @@ class MainActivity : ComponentActivity() {
                         },
                         shape = RoundedCornerShape(1.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Blue,
+                            containerColor = purple,
                             contentColor = Color.White
                         )
                     ) {
