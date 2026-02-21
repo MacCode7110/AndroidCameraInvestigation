@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -51,7 +52,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidcamerainvestigation.ui.theme.Purple40
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun CameraView(
@@ -60,16 +65,71 @@ fun CameraView(
     val context = LocalContext.current
     var mode by rememberSaveable{ mutableStateOf(CameraMode.NONE) }
     var numFaces by rememberSaveable{ mutableIntStateOf(0) }
-    val processor = remember { ImageProcessor() }
+    val boundingRectangle = remember { BoundingRectangle(context, null) }
+    val contourView = remember { ContourView(context, null) }
+    val processor = remember { ImageProcessor(boundingRectangle, contourView) }
     val scope = rememberCoroutineScope()
+    val isProcessing = remember { AtomicBoolean(false) }
+    var isAnalysisEnabled by remember { mutableStateOf(true) }
 
     val controller = remember {
         LifecycleCameraController(context).apply {
-            setEnabledUseCases (
-                CameraController.IMAGE_CAPTURE
+            setEnabledUseCases(
+                CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS
             )
 
             cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+            setImageAnalysisAnalyzer(
+                ContextCompat.getMainExecutor(context),
+                ImageAnalysis.Analyzer { imageProxy ->
+                    if (!isAnalysisEnabled) {
+                        imageProxy.close()
+                        return@Analyzer
+                    }
+                    if (mode == CameraMode.FACE_DETECTION) {
+                        contourView.clear()
+                        if (isProcessing.compareAndSet(false, true)) {
+                            scope.launch {
+                                try {
+                                    val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                    val bitmap = imageProxy.toBitmap()
+                                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                    val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                    processor.process(rotatedBitmap, mode)
+                                } finally {
+                                    imageProxy.close()
+                                    isProcessing.set(false)
+                                }
+                            }
+                        } else {
+                            imageProxy.close()
+                        }
+                    } else if (mode == CameraMode.CONTOUR_DETECTION) {
+                        boundingRectangle.clear()
+                        if (isProcessing.compareAndSet(false, true)) {
+                            scope.launch {
+                                try {
+                                    val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                    val bitmap = imageProxy.toBitmap()
+                                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                    val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                    processor.process(rotatedBitmap, mode)
+                                } finally {
+                                    imageProxy.close()
+                                    isProcessing.set(false)
+                                }
+                            }
+                        } else {
+                            imageProxy.close()
+                        }
+                    } else {
+                        boundingRectangle.clear()
+                        contourView.clear()
+                        imageProxy.close()
+                    }
+                }
+            )
         }
     }
 
@@ -89,7 +149,7 @@ fun CameraView(
             contentAlignment = Alignment.Center
         ) {
             if (capturedImage.value != null) {
-                Image (
+                Image(
                     bitmap = capturedImage.value!!.asImageBitmap(),
                     contentDescription = "Captured Photo",
                     modifier = Modifier
@@ -98,6 +158,7 @@ fun CameraView(
                     contentScale = ContentScale.Crop
                 )
             } else {
+                isAnalysisEnabled = true
                 CameraPreview(
                     controller = controller,
                     modifier = Modifier
@@ -105,6 +166,8 @@ fun CameraView(
                         .height(500.dp)
                 )
             }
+            AndroidView({ boundingRectangle })
+            AndroidView({ contourView })
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -112,20 +175,35 @@ fun CameraView(
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
-                if(capturedImage.value == null) {
-                    takePhoto(
-                        controller = controller,
-                        onPhotoTaken = { bitmap ->
-                            scope.launch {
-                                val result = processor.process(bitmap, mode)
-                                capturedImage.value = result.bitmap
-                                numFaces = result.faceCount
+                if (capturedImage.value == null) {
+                    scope.launch {
+                        isAnalysisEnabled = false
+                        withContext(Dispatchers.IO) {
+                            while (isProcessing.get()) {
+                                delay(10)
                             }
-                        },
-                        context = context
-                    )
+                        }
+                        boundingRectangle.clear()
+                        contourView.clear()
+                        numFaces = 0
+                        takePhoto(
+                            controller = controller,
+                            onPhotoTaken = { bitmap ->
+                                scope.launch {
+                                    val result = processor.process(bitmap, mode)
+                                    capturedImage.value = result.bitmap
+                                    numFaces = result.faceCount
+                                }
+                            },
+                            onPhotoCaptureFailed = { isProcessing.set(false) },
+                            context = context
+                        )
+                    }
                 } else {
                     capturedImage.value = null
+                    boundingRectangle.clear()
+                    contourView.clear()
+                    numFaces = 0
                 }
             },
             shape = RoundedCornerShape(1.dp),
@@ -157,6 +235,7 @@ fun CameraView(
 private fun takePhoto(
     controller: LifecycleCameraController,
     onPhotoTaken: (Bitmap) -> Unit,
+    onPhotoCaptureFailed: () -> Unit,
     context: Context
 ) {
     controller.takePicture(
@@ -189,7 +268,8 @@ private fun takePhoto(
 
             override fun onError(exception: ImageCaptureException) {
                 super.onError(exception)
-                Log.e("Camera", "couldn't take photo", exception)
+                Log.e("Camera", "couldn\'t take photo", exception)
+                onPhotoCaptureFailed()
             }
 
         }
@@ -201,6 +281,7 @@ fun CameraPreview(
     controller: LifecycleCameraController,
     modifier: Modifier) {
     val lifecycleOwner = LocalLifecycleOwner.current
+
     AndroidView(
         factory = {
             PreviewView(it).apply {
@@ -259,7 +340,7 @@ fun ModeSelection(
 
                 if(mode == CameraMode.FACE_DETECTION && selectedMode == mode) {
                     Text(
-                        text = if (numFaces == 1) "$numFaces face detected" else "$numFaces faces detected",
+                        text = "$numFaces face detected"
                     )
                 }
             }

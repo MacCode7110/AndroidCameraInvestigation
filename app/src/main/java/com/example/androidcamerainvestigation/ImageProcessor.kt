@@ -1,9 +1,8 @@
 package com.example.androidcamerainvestigation
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -11,7 +10,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class ImageProcessor {
+class ImageProcessor(private val boundingRectangle: BoundingRectangle, private val contourView: ContourView) {
+
+    private val faceDetectorOptions = FaceDetectorOptions.Builder()
+        .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+        .build()
     private val contourOptions = FaceDetectorOptions.Builder()
         .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -27,9 +30,40 @@ class ImageProcessor {
         }
     }
 
-    fun detectFaces(bitmap: Bitmap): ProcessingResult {
-        return ProcessingResult(bitmap = bitmap, faceCount = 0)
-    }
+    @OptIn(ExperimentalGetImage::class)
+    suspend fun detectFaces(bitmap: Bitmap): ProcessingResult =
+        suspendCancellableCoroutine { cont ->
+
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val detector = FaceDetection.getClient(faceDetectorOptions)
+
+            detector.process(image)
+                .addOnSuccessListener { faces ->
+                    val mutableBitmap =
+                        bitmap.copy(Bitmap.Config.ARGB_8888, true)
+
+                    faces.forEach { face ->
+                        val faceBounds = face.boundingBox
+                        val height = faceBounds.height()
+                        val offset = (height * 0.1f).toInt()
+                        faceBounds.offset(0, offset)
+
+                        boundingRectangle.setBoundingRect(faceBounds, image.width, image.height)
+
+                    }
+
+                    cont.resume(
+                        ProcessingResult(
+                            bitmap = mutableBitmap,
+                            faceCount = faces.size
+                        )
+                    )
+                }
+                .addOnFailureListener { e ->
+                    cont.resumeWithException(e)
+                }
+
+        }
 
     suspend fun detectContour(bitmap: Bitmap): ProcessingResult =
         suspendCancellableCoroutine { cont ->
@@ -41,27 +75,7 @@ class ImageProcessor {
                 .addOnSuccessListener { faces ->
                     val mutableBitmap =
                         bitmap.copy(Bitmap.Config.ARGB_8888, true)
-
-                    val canvas = Canvas(mutableBitmap)
-
-                    val paint = Paint().apply {
-                        color = Color.GREEN
-                        style = Paint.Style.FILL
-                        strokeWidth = 4f
-                    }
-
-                    faces.forEach { face ->
-                        face.allContours.forEach { contour ->
-                            contour.points.forEach { point ->
-                                canvas.drawCircle(
-                                    point.x,
-                                    point.y,
-                                    3f,
-                                    paint
-                                )
-                            }
-                        }
-                    }
+                    contourView.setContours(faces, image.width, image.height)
 
                     cont.resume(
                         ProcessingResult(
