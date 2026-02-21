@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.androidcamerainvestigation.ui.theme.Purple40
 import kotlinx.coroutines.launch
 
 @Composable
@@ -128,7 +130,7 @@ fun CameraView(
             },
             shape = RoundedCornerShape(1.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Blue,
+                containerColor = Purple40,
                 contentColor = Color.White
             )
         ) {
@@ -242,7 +244,11 @@ fun ModeSelection(
             ) {
                 RadioButton(
                     selected = mode == selectedMode,
-                    onClick = { onModeSelect(mode) }
+                    onClick = { onModeSelect(mode) },
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = Color.Black,
+                        unselectedColor = Color.LightGray
+                    )
                 )
 
                 Text(
