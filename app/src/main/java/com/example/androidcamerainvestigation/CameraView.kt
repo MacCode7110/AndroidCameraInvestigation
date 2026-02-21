@@ -259,7 +259,7 @@ fun ModeSelection(
 
                 if(mode == CameraMode.FACE_DETECTION && selectedMode == mode) {
                     Text(
-                        text = if (numFaces == 1) "$numFaces face detected" else "$numFaces faces detected",
+                        text = "$numFaces face detected"
                     )
                 }
             }
