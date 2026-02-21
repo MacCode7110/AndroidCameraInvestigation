@@ -2,54 +2,15 @@ package com.example.androidcamerainvestigation
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Matrix
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.view.CameraController
-import androidx.camera.view.LifecycleCameraController
-import androidx.camera.view.PreviewView
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.androidcamerainvestigation.ui.theme.AndroidCameraInvestigationTheme
-import com.example.androidcamerainvestigation.ui.theme.Purple40
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,144 +25,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AndroidCameraInvestigationTheme {
-                val controller = remember {
-                    LifecycleCameraController(applicationContext).apply {
-                        setEnabledUseCases (
-                            CameraController.IMAGE_CAPTURE
-                        )
-                    }
-                }
-
-                var capturedImage = remember {
-                    mutableStateOf<Bitmap?>(null)
-                }
-
-                Column(
-                        modifier = Modifier.padding(PaddingValues()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(500.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (capturedImage.value != null) {
-                            Image (
-                                bitmap = capturedImage.value!!.asImageBitmap(),
-                                contentDescription = "Captured Photo",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(2.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            CameraPreview(
-                                controller = controller,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .height(500.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 30.dp),
-                        onClick = {
-                            takePhoto(
-                                controller = controller,
-                                onPhotoTaken = {
-                                    bitmap -> capturedImage.value = bitmap
-                                }
-                            )
-                        },
-                        shape = RoundedCornerShape(1.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Purple40,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text("Take a picture", fontSize = 16.sp)
-
-                        //ML-Kit can be applied here
-                    }
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Column(
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    )
-                    {
-                        val effects = listOf("None", "Face Detection", "Contour Detection", "Mesh Detection", "Selfie Segmentation")
-                        val (selectedEffect, onEffectSelected) = remember{ mutableStateOf(effects[0]) }
-
-                        effects.forEach { text ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().
-                                height(20.dp).
-                                padding(horizontal = 20.dp).
-                                selectable(
-                                    selected = (text == selectedEffect),
-                                    onClick = { onEffectSelected(text) }
-                                ),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                RadioButton(
-                                    selected = (text == selectedEffect),
-                                    onClick = { onEffectSelected(text) },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = Color.Black,
-                                        unselectedColor = Color.LightGray
-                                    )
-                                )
-                                Text(text = text, modifier = Modifier.padding(start = 5.dp))
-                            }
-                        }
-                  }
-                }
+                CameraView(modifier = Modifier.fillMaxSize())
             }
         }
-    }
-
-    private fun takePhoto(
-        controller: LifecycleCameraController,
-        onPhotoTaken: (Bitmap) -> Unit
-    ) {
-        controller.takePicture(
-            ContextCompat.getMainExecutor(applicationContext),
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    super.onCaptureSuccess(image)
-
-                    val rotationDegrees = image.imageInfo.rotationDegrees
-
-                    val originalBitmap = image.toBitmap()
-
-                    val matrix = Matrix().apply {
-                        postRotate(rotationDegrees.toFloat())
-                    }
-
-                    val rotatedBitmap = Bitmap.createBitmap(
-                        originalBitmap,
-                        0,
-                        0,
-                        originalBitmap.width,
-                        originalBitmap.height,
-                        matrix,
-                        true
-                    )
-
-                    image.close()
-                    onPhotoTaken(rotatedBitmap)
-                }
-
-                override fun onError(exception: ImageCaptureException) {
-                    super.onError(exception)
-                    Log.e("Camera", "couldn't take photo", exception)
-                }
-
-            }
-        )
     }
 
     private fun hasRequiredPermissions(): Boolean {
@@ -218,20 +44,4 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.CAMERA
         )
     }
-
-    @Composable
-    fun CameraPreview(
-        controller: LifecycleCameraController,
-        modifier: Modifier) {
-        val lifecycleOwner = LocalLifecycleOwner.current
-        AndroidView(
-            factory = {
-                PreviewView(it).apply {
-                    this.controller = controller
-                    controller.bindToLifecycle(lifecycleOwner)
-                }
-            },
-            modifier = modifier
-        )
-        }
-    }
+}
