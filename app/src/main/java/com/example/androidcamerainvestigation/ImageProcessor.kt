@@ -9,6 +9,9 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.google.mlkit.vision.segmentation.Segmentation
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import androidx.core.graphics.set
 
 class ImageProcessor(private val boundingRectangle: BoundingRectangle, private val contourView: ContourView) {
 
@@ -19,6 +22,12 @@ class ImageProcessor(private val boundingRectangle: BoundingRectangle, private v
         .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .build()
+
+    private val selfieOptions = SelfieSegmenterOptions.Builder()
+        .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+        .build()
+
+    private val segmenter = Segmentation.getClient(selfieOptions)
 
     suspend fun process(bitmap: Bitmap, mode: CameraMode): ProcessingResult {
         return when(mode) {
@@ -93,9 +102,36 @@ class ImageProcessor(private val boundingRectangle: BoundingRectangle, private v
         return ProcessingResult(bitmap = bitmap, faceCount = 0)
     }
 
-    fun segmentSelfie(bitmap: Bitmap): ProcessingResult {
-        return ProcessingResult(bitmap = bitmap, faceCount = 0)
-    }
+    suspend fun segmentSelfie(bitmap: Bitmap): ProcessingResult =
+        suspendCancellableCoroutine { cont ->
+
+            val image = InputImage.fromBitmap(bitmap, 0)
+
+            segmenter.process(image)
+                .addOnSuccessListener { mask ->
+
+                    val width = mask.width
+                    val height = mask.height
+                    val maskBuffer = mask.buffer
+                    val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+
+                    maskBuffer.rewind()
+
+                    for (y in 0 until height) {
+                        for (x in 0 until width) {
+                            val confidence = maskBuffer.float
+                            if (confidence < 0.8f) {
+                                mutableBitmap[x, y] = 0xFF00FF00.toInt()
+                            }
+                        }
+                    }
+
+                    cont.resume(ProcessingResult(mutableBitmap, 0))
+                }
+                .addOnFailureListener { e ->
+                    cont.resumeWithException(e)
+                }
+        }
 }
 
 data class ProcessingResult(
