@@ -67,7 +67,8 @@ fun CameraView(
     var numFaces by rememberSaveable{ mutableIntStateOf(0) }
     val boundingRectangle = remember { BoundingRectangle(context, null) }
     val contourView = remember { ContourView(context, null) }
-    val processor = remember { ImageProcessor(boundingRectangle, contourView) }
+    val meshView = remember { MeshView(context, null) }
+    val processor = remember { ImageProcessor(boundingRectangle, contourView, meshView) }
     val scope = rememberCoroutineScope()
     val isProcessing = remember { AtomicBoolean(false) }
     var isAnalysisEnabled by remember { mutableStateOf(true) }
@@ -89,6 +90,7 @@ fun CameraView(
                     }
                     if (mode == CameraMode.FACE_DETECTION) {
                         contourView.clear()
+                        meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
                             scope.launch {
                                 try {
@@ -107,6 +109,26 @@ fun CameraView(
                         }
                     } else if (mode == CameraMode.CONTOUR_DETECTION) {
                         boundingRectangle.clear()
+                        meshView.clear()
+                        if (isProcessing.compareAndSet(false, true)) {
+                            scope.launch {
+                                try {
+                                    val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                    val bitmap = imageProxy.toBitmap()
+                                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                    val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                    processor.process(rotatedBitmap, mode)
+                                } finally {
+                                    imageProxy.close()
+                                    isProcessing.set(false)
+                                }
+                            }
+                        } else {
+                            imageProxy.close()
+                        }
+                    } else if (mode == CameraMode.MESH_DETECTION) {
+                        boundingRectangle.clear()
+                        contourView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
                             scope.launch {
                                 try {
@@ -126,6 +148,7 @@ fun CameraView(
                     } else {
                         boundingRectangle.clear()
                         contourView.clear()
+                        meshView.clear()
                         imageProxy.close()
                     }
                 }
@@ -168,6 +191,7 @@ fun CameraView(
             }
             AndroidView({ boundingRectangle })
             AndroidView({ contourView })
+            AndroidView({ meshView })
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -185,12 +209,13 @@ fun CameraView(
                         }
                         boundingRectangle.clear()
                         contourView.clear()
+                        meshView.clear()
                         numFaces = 0
                         takePhoto(
                             controller = controller,
                             onPhotoTaken = { bitmap ->
                                 scope.launch {
-                                    val result = processor.process(bitmap, mode)
+                                    val result = processor.process(bitmap, mode, drawOnBitmap = true)
                                     capturedImage.value = result.bitmap
                                     numFaces = result.faceCount
                                 }
@@ -203,6 +228,7 @@ fun CameraView(
                     capturedImage.value = null
                     boundingRectangle.clear()
                     contourView.clear()
+                    meshView.clear()
                     numFaces = 0
                 }
             },
