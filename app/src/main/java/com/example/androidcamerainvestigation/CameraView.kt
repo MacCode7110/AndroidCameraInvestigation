@@ -32,6 +32,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
@@ -73,6 +76,16 @@ fun CameraView(
     val isProcessing = remember { AtomicBoolean(false) }
     var isAnalysisEnabled by remember { mutableStateOf(true) }
 
+    val analysisExecutor = remember {
+        Executors.newSingleThreadExecutor()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            analysisExecutor.shutdown()
+        }
+    }
+
     val controller = remember {
         LifecycleCameraController(context).apply {
             setEnabledUseCases(
@@ -82,7 +95,7 @@ fun CameraView(
             cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             setImageAnalysisAnalyzer(
-                ContextCompat.getMainExecutor(context),
+                analysisExecutor,
                 ImageAnalysis.Analyzer { imageProxy ->
                     if (!isAnalysisEnabled) {
                         imageProxy.close()
@@ -92,7 +105,7 @@ fun CameraView(
                         contourView.clear()
                         meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch {
+                            scope.launch(Dispatchers.Default) {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -111,7 +124,7 @@ fun CameraView(
                         boundingRectangle.clear()
                         meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch {
+                            scope.launch(Dispatchers.Default) {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -130,7 +143,7 @@ fun CameraView(
                         boundingRectangle.clear()
                         contourView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch {
+                            scope.launch(Dispatchers.Default) {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -307,6 +320,10 @@ fun CameraPreview(
     controller: LifecycleCameraController,
     modifier: Modifier) {
     val lifecycleOwner = LocalLifecycleOwner.current
+
+//    LaunchedEffect(lifecycleOwner) {
+//        controller.bindToLifecycle(lifecycleOwner)
+//    }
 
     AndroidView(
         factory = {

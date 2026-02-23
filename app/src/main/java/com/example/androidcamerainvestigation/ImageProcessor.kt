@@ -41,7 +41,9 @@ class ImageProcessor(
         .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
         .build()
 
-    private val segmenter = Segmentation.getClient(selfieOptions)
+    private val segmenter by lazy {
+        Segmentation.getClient(selfieOptions)
+    }
 
     private val meshDetector: com.google.mlkit.vision.facemesh.FaceMeshDetector? by lazy {
         try {
