@@ -32,6 +32,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
@@ -67,10 +69,21 @@ fun CameraView(
     var numFaces by rememberSaveable{ mutableIntStateOf(0) }
     val boundingRectangle = remember { BoundingRectangle(context, null) }
     val contourView = remember { ContourView(context, null) }
-    val processor = remember { ImageProcessor(boundingRectangle, contourView) }
+    val meshView = remember { MeshView(context, null) }
+    val processor = remember { ImageProcessor(boundingRectangle, contourView, meshView) }
     val scope = rememberCoroutineScope()
     val isProcessing = remember { AtomicBoolean(false) }
     var isAnalysisEnabled by remember { mutableStateOf(true) }
+
+    val analysisExecutor = remember {
+        Executors.newSingleThreadExecutor()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            analysisExecutor.shutdown()
+        }
+    }
 
     val controller = remember {
         LifecycleCameraController(context).apply {
@@ -81,7 +94,7 @@ fun CameraView(
             cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             setImageAnalysisAnalyzer(
-                ContextCompat.getMainExecutor(context),
+                analysisExecutor,
                 ImageAnalysis.Analyzer { imageProxy ->
                     if (!isAnalysisEnabled) {
                         imageProxy.close()
@@ -89,6 +102,7 @@ fun CameraView(
                     }
                     if (mode == CameraMode.FACE_DETECTION) {
                         contourView.clear()
+                        meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
                             scope.launch {
                                 try {
@@ -107,6 +121,26 @@ fun CameraView(
                         }
                     } else if (mode == CameraMode.CONTOUR_DETECTION) {
                         boundingRectangle.clear()
+                        meshView.clear()
+                        if (isProcessing.compareAndSet(false, true)) {
+                            scope.launch {
+                                try {
+                                    val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                    val bitmap = imageProxy.toBitmap()
+                                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                    val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                    processor.process(rotatedBitmap, mode)
+                                } finally {
+                                    imageProxy.close()
+                                    isProcessing.set(false)
+                                }
+                            }
+                        } else {
+                            imageProxy.close()
+                        }
+                    } else if (mode == CameraMode.MESH_DETECTION) {
+                        boundingRectangle.clear()
+                        contourView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
                             scope.launch {
                                 try {
@@ -126,6 +160,7 @@ fun CameraView(
                     } else {
                         boundingRectangle.clear()
                         contourView.clear()
+                        meshView.clear()
                         imageProxy.close()
                     }
                 }
@@ -168,6 +203,7 @@ fun CameraView(
             }
             AndroidView({ boundingRectangle })
             AndroidView({ contourView })
+            AndroidView({ meshView })
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -185,12 +221,13 @@ fun CameraView(
                         }
                         boundingRectangle.clear()
                         contourView.clear()
+                        meshView.clear()
                         numFaces = 0
                         takePhoto(
                             controller = controller,
                             onPhotoTaken = { bitmap ->
                                 scope.launch {
-                                    val result = processor.process(bitmap, mode)
+                                    val result = processor.process(bitmap, mode, drawOnBitmap = true)
                                     capturedImage.value = result.bitmap
                                     numFaces = result.faceCount
                                 }
@@ -203,6 +240,7 @@ fun CameraView(
                     capturedImage.value = null
                     boundingRectangle.clear()
                     contourView.clear()
+                    meshView.clear()
                     numFaces = 0
                 }
             },

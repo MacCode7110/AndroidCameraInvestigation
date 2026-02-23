@@ -25,7 +25,8 @@ class ContourView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         this.faces = faces
         this.imageWidth = imageWidth
         this.imageHeight = imageHeight
-        invalidate()
+
+        post { invalidate() }
     }
 
     fun clear() {
