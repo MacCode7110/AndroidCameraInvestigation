@@ -33,7 +33,6 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -105,7 +104,7 @@ fun CameraView(
                         contourView.clear()
                         meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch(Dispatchers.Default) {
+                            scope.launch {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -124,7 +123,7 @@ fun CameraView(
                         boundingRectangle.clear()
                         meshView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch(Dispatchers.Default) {
+                            scope.launch {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -143,7 +142,7 @@ fun CameraView(
                         boundingRectangle.clear()
                         contourView.clear()
                         if (isProcessing.compareAndSet(false, true)) {
-                            scope.launch(Dispatchers.Default) {
+                            scope.launch {
                                 try {
                                     val rotationDegrees = imageProxy.imageInfo.rotationDegrees
                                     val bitmap = imageProxy.toBitmap()
@@ -320,10 +319,6 @@ fun CameraPreview(
     controller: LifecycleCameraController,
     modifier: Modifier) {
     val lifecycleOwner = LocalLifecycleOwner.current
-
-//    LaunchedEffect(lifecycleOwner) {
-//        controller.bindToLifecycle(lifecycleOwner)
-//    }
 
     AndroidView(
         factory = {
