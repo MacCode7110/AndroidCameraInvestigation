@@ -15,10 +15,10 @@ import com.google.mlkit.vision.facemesh.FaceMeshDetectorOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-//import com.google.mlkit.vision.segmentation.Segmentation
-//import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
-//import androidx.core.graphics.set
-//import androidx.core.graphics.get
+import com.google.mlkit.vision.segmentation.Segmentation
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import androidx.core.graphics.set
+import androidx.core.graphics.get
 
 class ImageProcessor(
     private val boundingRectangle: BoundingRectangle,
@@ -37,13 +37,13 @@ class ImageProcessor(
         .setUseCase(FaceMeshDetectorOptions.FACE_MESH)
         .build()
 
-//    private val selfieOptions = SelfieSegmenterOptions.Builder()
-//        .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-//        .build()
-//
-//    private val segmenter by lazy {
-//        Segmentation.getClient(selfieOptions)
-//    }
+    private val selfieOptions = SelfieSegmenterOptions.Builder()
+        .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+        .build()
+
+    private val segmenter by lazy {
+        Segmentation.getClient(selfieOptions)
+    }
 
     private fun getMeshDetector(): com.google.mlkit.vision.facemesh.FaceMeshDetector? {
         return try {
@@ -229,56 +229,56 @@ class ImageProcessor(
 
     suspend fun segmentSelfie(bitmap: Bitmap): ProcessingResult =
         suspendCancellableCoroutine { cont ->
-//
-//            val image = InputImage.fromBitmap(bitmap, 0)
-//
-//            segmenter.process(image)
-//                .addOnSuccessListener { mask ->
-//
-//                    val width = mask.width
-//                    val height = mask.height
-//                    val maskBuffer = mask.buffer
-//                    val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-//
-//                    maskBuffer.rewind()
-//
-//                    for (y in 0 until height) {
-//                        for (x in 0 until width) {
-//                            val confidence = maskBuffer.float
-//                            if (confidence > 0.5f) {
-//                                val originalPixel = mutableBitmap[x, y]
-//
-//                                val highlightColor = 0x55E015E3
-//                                val blended = blendColors(originalPixel, highlightColor)
-//
-//                                mutableBitmap[x, y] = blended
-//                            }
-//                        }
-//                    }
-//
-//                    cont.resume(ProcessingResult(mutableBitmap, 0))
-//                }
-//                .addOnFailureListener { e ->
-//                    cont.resumeWithException(e)
-//                }
+
+            val image = InputImage.fromBitmap(bitmap, 0)
+
+            segmenter.process(image)
+                .addOnSuccessListener { mask ->
+
+                    val width = mask.width
+                    val height = mask.height
+                    val maskBuffer = mask.buffer
+                    val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+
+                   maskBuffer.rewind()
+
+                    for (y in 0 until height) {
+                       for (x in 0 until width) {
+                           val confidence = maskBuffer.float
+                            if (confidence > 0.5f) {
+                                val originalPixel = mutableBitmap[x, y]
+
+                               val highlightColor = 0x55E015E3
+                                val blended = blendColors(originalPixel, highlightColor)
+
+                                mutableBitmap[x, y] = blended
+                           }
+                        }
+                   }
+
+                   cont.resume(ProcessingResult(mutableBitmap, 0))
+               }
+                .addOnFailureListener { e ->
+                   cont.resumeWithException(e)
+               }
         }
-//    private fun blendColors(baseColor: Int, overlayColor: Int): Int {
-//        val alpha = ((overlayColor shr 24) and 0xFF) / 255f
-//
-//        val r1 = (baseColor shr 16) and 0xFF
-//        val g1 = (baseColor shr 8) and 0xFF
-//        val b1 = baseColor and 0xFF
-//
-//        val r2 = (overlayColor shr 16) and 0xFF
-//        val g2 = (overlayColor shr 8) and 0xFF
-//        val b2 = overlayColor and 0xFF
-//
-//        val r = (r1 * (1 - alpha) + r2 * alpha).toInt()
-//        val g = (g1 * (1 - alpha) + g2 * alpha).toInt()
-//        val b = (b1 * (1 - alpha) + b2 * alpha).toInt()
-//
-//        return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-//    }
+    private fun blendColors(baseColor: Int, overlayColor: Int): Int {
+        val alpha = ((overlayColor shr 24) and 0xFF) / 255f
+
+       val r1 = (baseColor shr 16) and 0xFF
+        val g1 = (baseColor shr 8) and 0xFF
+       val b1 = baseColor and 0xFF
+
+       val r2 = (overlayColor shr 16) and 0xFF
+       val g2 = (overlayColor shr 8) and 0xFF
+        val b2 = overlayColor and 0xFF
+
+       val r = (r1 * (1 - alpha) + r2 * alpha).toInt()
+        val g = (g1 * (1 - alpha) + g2 * alpha).toInt()
+       val b = (b1 * (1 - alpha) + b2 * alpha).toInt()
+
+       return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+    }
 }
 
 data class ProcessingResult(
