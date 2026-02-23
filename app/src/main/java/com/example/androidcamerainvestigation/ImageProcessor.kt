@@ -43,11 +43,17 @@ class ImageProcessor(
 
     private val segmenter = Segmentation.getClient(selfieOptions)
 
-    private fun getMeshDetector(): com.google.mlkit.vision.facemesh.FaceMeshDetector? {
-        return try {
-            FaceMeshDetection.getClient(meshOptions)
+    private val meshDetector: com.google.mlkit.vision.facemesh.FaceMeshDetector? by lazy {
+        try {
+            Log.d("ImageProcessor", "Attempting to create face mesh detector...")
+            val detector = FaceMeshDetection.getClient(meshOptions)
+            Log.d("ImageProcessor", "Face mesh detector created successfully")
+            detector
         } catch (e: Exception) {
             Log.e("ImageProcessor", "Failed to create face mesh detector", e)
+            null
+        } catch (e: Error) {
+            Log.e("ImageProcessor", "Fatal error creating face mesh detector", e)
             null
         }
     }
@@ -124,7 +130,7 @@ class ImageProcessor(
     suspend fun detectMesh(bitmap: Bitmap, drawOnBitmap: Boolean = false): ProcessingResult =
         suspendCancellableCoroutine { cont ->
 
-            val detector = getMeshDetector()
+            val detector = meshDetector
 
             if (detector == null) {
                 Log.e("ImageProcessor", "Face mesh detector is not available")

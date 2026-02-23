@@ -62,6 +62,5 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.face.detection)
     implementation(libs.mlkit.face.mesh.detection)
-    implementation(libs.mlkit.mediapipe.internal)
     implementation(libs.mlkit.segmentation.selfie)
 }
